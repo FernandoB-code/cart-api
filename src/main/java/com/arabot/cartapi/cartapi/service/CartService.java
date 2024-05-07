@@ -10,9 +10,7 @@ public interface CartService {
 
     boolean removeProductFromCart(UUID productId);
 
-    boolean purchaseProdcutsInCart();
-
-
+    boolean purchaseProductsInCart();
 
      List<Product> productsInCart(List<UUID> productsId);
 }

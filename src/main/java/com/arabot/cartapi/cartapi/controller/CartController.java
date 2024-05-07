@@ -43,7 +43,7 @@ public class CartController {
     @PostMapping("/purchase")
     public ResponseEntity<?> purchaseProductsInCart() {
 
-        return new ResponseEntity<>(cartService.purchaseProdcutsInCart(), HttpStatus.OK);
+        return new ResponseEntity<>(cartService.purchaseProductsInCart(), HttpStatus.OK);
 
     }
 }

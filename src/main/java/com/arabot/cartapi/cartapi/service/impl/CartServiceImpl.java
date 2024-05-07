@@ -7,7 +7,9 @@ import com.arabot.cartapi.cartapi.repository.CartRepository;
 import com.arabot.cartapi.cartapi.repository.ProductRepository;
 import com.arabot.cartapi.cartapi.service.CartService;
 import org.modelmapper.ModelMapper;
+import org.springframework.amqp.core.AmqpTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,11 +25,22 @@ public class CartServiceImpl implements CartService {
 
     private final CartRepository cartRepository;
 
+    private final AmqpTemplate amqpTemplate;
+
+
+    @Value("${rabbitmq.exchange}")
+    String exchange;
+
+    @Value("${rabbitmq.routingkey}")
+    private String routingkey;
+
 
     @Autowired
-    public CartServiceImpl(ProductRepository productRepository, CartRepository cartRepository) {
+    public CartServiceImpl(ProductRepository productRepository, CartRepository cartRepository,
+                           AmqpTemplate amqpTemplate) {
         this.productRepository = productRepository;
         this.cartRepository = cartRepository;
+        this.amqpTemplate = amqpTemplate;
 
     }
 
@@ -57,18 +70,18 @@ public class CartServiceImpl implements CartService {
 
     @Override
     @Transactional
-    public boolean purchaseProdcutsInCart() {
+    public boolean purchaseProductsInCart() {
 
         String email = "test@gmail.com";
 
         Optional<Cart> car = cartRepository.findById(email);
 
-       List<ResumeProduct> products = car.orElseThrow().getProducts();
+        List<ResumeProduct> products = car.orElseThrow().getProducts();
 
-       ArrayList<Product> productsToUpdate = new ArrayList<>();
+        ArrayList<Product> productsToUpdate = new ArrayList<>();
 
 
-        for (ResumeProduct actualProduct: products ) {
+        for (ResumeProduct actualProduct : products) {
 
             productRepository.findById(actualProduct.getProductId())
                     .ifPresentOrElse(
@@ -84,6 +97,7 @@ public class CartServiceImpl implements CartService {
                             },
 
                             () -> {
+
                                 throw new RuntimeException("Product with ID: " + actualProduct.getProductId() + " not found");
                             }
                     );
@@ -91,11 +105,12 @@ public class CartServiceImpl implements CartService {
             try {
 
                 productRepository.saveAll(productsToUpdate);
+                publishMessage(productsToUpdate);
 
 
             } catch (Exception e) {
 
-            return false;
+                return false;
 
             }
 
@@ -128,7 +143,7 @@ public class CartServiceImpl implements CartService {
         Optional<ResumeProduct> resumeProduct = cart.getProducts().stream().filter(p -> p.getProductId().equals(productId)).findFirst();
 
         resumeProduct.ifPresentOrElse(
-                ResumeProduct::increaseCant, () ->  cart.getProducts().add(buildNewResumeProduct(productId)));
+                ResumeProduct::increaseCant, () -> cart.getProducts().add(buildNewResumeProduct(productId)));
 
         cartRepository.save(cart);
 
@@ -139,6 +154,11 @@ public class CartServiceImpl implements CartService {
 
         return ResumeProduct.builder().productId(productId).cant(1).build();
 
+    }
+
+    public void publishMessage(List<Product> products){
+
+        amqpTemplate.convertAndSend(exchange,routingkey,products);
     }
 
 }

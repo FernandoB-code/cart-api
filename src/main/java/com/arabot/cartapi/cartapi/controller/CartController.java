@@ -20,14 +20,9 @@ public class CartController {
     @Autowired
     private CartService cartService;
 
-    @Autowired
-    private HttpServletRequest request;
-
     @PostMapping("/add")
     public ResponseEntity<?> addProductToCart(@RequestParam("productId") UUID productId) {
 
-        String token = request.getHeader("Authorization");
-        token = token.replace("Bearer ", "");
 
         return new ResponseEntity<>(cartService.addProductToCart(productId), HttpStatus.OK);
 
@@ -46,4 +41,6 @@ public class CartController {
         return new ResponseEntity<>(cartService.purchaseProductsInCart(), HttpStatus.OK);
 
     }
+
+
 }

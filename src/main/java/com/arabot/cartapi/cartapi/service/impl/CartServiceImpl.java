@@ -6,7 +6,7 @@ import com.arabot.cartapi.cartapi.model.Product;
 import com.arabot.cartapi.cartapi.repository.CartRepository;
 import com.arabot.cartapi.cartapi.repository.ProductRepository;
 import com.arabot.cartapi.cartapi.service.CartService;
-import org.modelmapper.ModelMapper;
+import org.arabot.provider.utils.UserUtils;
 import org.springframework.amqp.core.AmqpTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +27,8 @@ public class CartServiceImpl implements CartService {
 
     private final AmqpTemplate amqpTemplate;
 
+    private final UserUtils userUtils;
+
 
     @Value("${rabbitmq.exchange}")
     String exchange;
@@ -37,10 +39,11 @@ public class CartServiceImpl implements CartService {
 
     @Autowired
     public CartServiceImpl(ProductRepository productRepository, CartRepository cartRepository,
-                           AmqpTemplate amqpTemplate) {
+                           AmqpTemplate amqpTemplate,UserUtils userUtils) {
         this.productRepository = productRepository;
         this.cartRepository = cartRepository;
         this.amqpTemplate = amqpTemplate;
+        this.userUtils = userUtils;
 
     }
 
@@ -49,15 +52,16 @@ public class CartServiceImpl implements CartService {
     public boolean addProductToCart(UUID productId) {
 
         Optional<Product> product = productRepository.findById(productId);
-        String email = "test@gmail.com";
 
-        if (!cartRepository.existsById(email)) {
+      String actualUser =  userUtils.getAutenticatedUserName();
 
-            createInitialCart(email, productId);
+        if (!cartRepository.existsById(actualUser)) {
+
+            createInitialCart(actualUser, productId);
 
         } else {
 
-            addProductToCar(email, productId);
+            addProductToCar(actualUser, productId);
         }
 
         return true;
@@ -72,14 +76,13 @@ public class CartServiceImpl implements CartService {
     @Transactional
     public boolean purchaseProductsInCart() {
 
-        String email = "test@gmail.com";
+        String actualUser =  userUtils.getAutenticatedUserName();
 
-        Optional<Cart> car = cartRepository.findById(email);
+        Optional<Cart> car = cartRepository.findById(actualUser);
 
         List<ResumeProduct> products = car.orElseThrow().getProducts();
 
         ArrayList<Product> productsToUpdate = new ArrayList<>();
-
 
         for (ResumeProduct actualProduct : products) {
 
@@ -142,8 +145,13 @@ public class CartServiceImpl implements CartService {
         Cart cart = cartRepository.findById(email).orElseThrow();
         Optional<ResumeProduct> resumeProduct = cart.getProducts().stream().filter(p -> p.getProductId().equals(productId)).findFirst();
 
-        resumeProduct.ifPresentOrElse(
-                ResumeProduct::increaseCant, () -> cart.getProducts().add(buildNewResumeProduct(productId)));
+        if(resumeProduct.isPresent()) {
+            resumeProduct.get().increaseCant();
+            resumeProduct.get().increaseCant();
+
+        } else {
+            cart.getProducts().add(buildNewResumeProduct(productId));
+        }
 
         cartRepository.save(cart);
 

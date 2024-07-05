@@ -12,8 +12,13 @@ public class ResumeProduct {
 
     private UUID productId;
     private int cant;
+    private double totalPrice;
 
     public void increaseCant() {
+        this.cant ++;
+    }
+
+    public void calculateTotal() {
         this.cant ++;
     }
 

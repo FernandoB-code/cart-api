@@ -11,15 +11,14 @@ import java.util.UUID;
 public class ResumeProduct {
 
     private UUID productId;
-    private int cant;
+    private String name;
+    private int quantity;
     private double totalPrice;
 
-    public void increaseCant() {
-        this.cant ++;
+    public void increaseQuantity() {
+        this.quantity ++;
     }
 
-    public void calculateTotal() {
-        this.cant ++;
-    }
+    public void increaseTotalPrice() { this.totalPrice += this.totalPrice; }
 
 }

@@ -1,5 +1,6 @@
 package com.arabot.cartapi.cartapi.model;
 
+import com.arabot.cartapi.cartapi.dto.ProductDTO;
 import com.arabot.cartapi.cartapi.dto.ResumeProduct;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
@@ -15,5 +16,7 @@ public class Cart {
     String id;
 
     List<ResumeProduct> products;
+
+    double totalPrice;
 
 }

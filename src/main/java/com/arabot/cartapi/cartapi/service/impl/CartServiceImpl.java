@@ -1,5 +1,7 @@
 package com.arabot.cartapi.cartapi.service.impl;
 
+import com.arabot.cartapi.cartapi.dto.MessageDTO;
+import com.arabot.cartapi.cartapi.dto.ProductDTO;
 import com.arabot.cartapi.cartapi.dto.ResumeProduct;
 import com.arabot.cartapi.cartapi.model.Cart;
 import com.arabot.cartapi.cartapi.model.Product;
@@ -7,6 +9,7 @@ import com.arabot.cartapi.cartapi.repository.CartRepository;
 import com.arabot.cartapi.cartapi.repository.ProductRepository;
 import com.arabot.cartapi.cartapi.service.CartService;
 import org.arabot.provider.utils.UserUtils;
+import org.modelmapper.ModelMapper;
 import org.springframework.amqp.core.AmqpTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +32,8 @@ public class CartServiceImpl implements CartService {
 
     private final UserUtils userUtils;
 
+    private final ModelMapper mapper;
+
 
     @Value("${rabbitmq.exchange}")
     String exchange;
@@ -39,11 +44,12 @@ public class CartServiceImpl implements CartService {
 
     @Autowired
     public CartServiceImpl(ProductRepository productRepository, CartRepository cartRepository,
-                           AmqpTemplate amqpTemplate,UserUtils userUtils) {
+                           AmqpTemplate amqpTemplate,UserUtils userUtils, ModelMapper mapper) {
         this.productRepository = productRepository;
         this.cartRepository = cartRepository;
         this.amqpTemplate = amqpTemplate;
         this.userUtils = userUtils;
+        this.mapper = mapper;
 
     }
 
@@ -51,17 +57,18 @@ public class CartServiceImpl implements CartService {
     @Override
     public boolean addProductToCart(UUID productId) {
 
-        Optional<Product> product = productRepository.findById(productId);
+        Product product = productRepository.findById(productId).orElseThrow();
+        ProductDTO productDTO = mapper.map(product, ProductDTO.class);
 
-      String actualUser =  userUtils.getAutenticatedUserName();
+        String actualUser =  userUtils.getAutenticatedUserName();
 
         if (!cartRepository.existsById(actualUser)) {
 
-            createInitialCart(actualUser, productId);
+            createInitialCart(actualUser, productDTO);
 
         } else {
 
-            addProductToCar(actualUser, productId);
+            addProductToCar(actualUser, productDTO);
         }
 
         return true;
@@ -89,8 +96,8 @@ public class CartServiceImpl implements CartService {
             productRepository.findById(actualProduct.getProductId())
                     .ifPresentOrElse(
                             product -> {
-                                if (product.getStock() >= actualProduct.getCant()) {
-                                    product.setStock(product.getStock() - actualProduct.getCant());
+                                if (product.getStock() >= actualProduct.getQuantity()) {
+                                    product.setStock(product.getStock() - actualProduct.getQuantity());
                                     productsToUpdate.add(product);
 
                                 } else {
@@ -108,7 +115,7 @@ public class CartServiceImpl implements CartService {
             try {
 
                 productRepository.saveAll(productsToUpdate);
-                publishMessage(productsToUpdate);
+                publishMessage(buildNewMessageDTO(products, actualUser));
 
 
             } catch (Exception e) {
@@ -128,45 +135,71 @@ public class CartServiceImpl implements CartService {
         return productRepository.findAllById(productsId);
     }
 
-    private void createInitialCart(String email, UUID productId) {
+    private void createInitialCart(String email, ProductDTO productDTO) {
 
         Cart cart = new Cart();
         cart.setId(email);
         cart.setProducts(new ArrayList<>());
 
-        cart.getProducts().add(buildNewResumeProduct(productId));
+        ResumeProduct resumeProduct = buildNewResumeProduct(productDTO);
+
+        cart.getProducts().add(resumeProduct);
+        cart.setTotalPrice(resumeProduct.getTotalPrice());
 
         cartRepository.save(cart);
 
     }
 
-    private void addProductToCar(String email, UUID productId) {
+    private void addProductToCar(String email, ProductDTO productDTO) {
 
         Cart cart = cartRepository.findById(email).orElseThrow();
-        Optional<ResumeProduct> resumeProduct = cart.getProducts().stream().filter(p -> p.getProductId().equals(productId)).findFirst();
 
-        if(resumeProduct.isPresent()) {
-            resumeProduct.get().increaseCant();
-            resumeProduct.get().increaseCant();
+        Optional<ResumeProduct> productInCart = cart.getProducts().stream().filter(p -> p.getProductId().equals(productDTO.getId())).findFirst();
+
+        if(productInCart.isPresent()) {
+
+            productInCart.get().increaseQuantity();
+            productInCart.get().increaseTotalPrice();
 
         } else {
-            cart.getProducts().add(buildNewResumeProduct(productId));
+
+            cart.getProducts().add(buildNewResumeProduct(productDTO));
         }
+
+        cart.setTotalPrice(calculateTotalCartPrice(cart));
 
         cartRepository.save(cart);
 
+    }
+
+    private ResumeProduct buildNewResumeProduct(ProductDTO productDTO) {
+
+        return ResumeProduct.builder().productId(productDTO.getId())
+                .name(productDTO.getName()).quantity(1).totalPrice(productDTO.getPrice()).build();
 
     }
 
-    private ResumeProduct buildNewResumeProduct(UUID productId) {
+    private MessageDTO buildNewMessageDTO(List<ResumeProduct> resumeProductList, String actualUser) {
 
-        return ResumeProduct.builder().productId(productId).cant(1).build();
-
+        return MessageDTO.builder().productList(resumeProductList)
+                .totalAmount(calculateTotalCartPrice(resumeProductList))
+                .userEmail(actualUser)
+                .build();
     }
 
-    public void publishMessage(List<Product> products){
+    public void publishMessage(MessageDTO messageDTO){
 
-        amqpTemplate.convertAndSend(exchange,routingkey,products);
+        amqpTemplate.convertAndSend(exchange,routingkey,messageDTO);
+    }
+
+    private double calculateTotalCartPrice(Cart cart) {
+
+        return cart.getProducts().stream().mapToDouble(ResumeProduct::getTotalPrice).sum();
+    }
+
+    private double calculateTotalCartPrice(List<ResumeProduct> resumeProductList) {
+
+        return resumeProductList.stream().mapToDouble(ResumeProduct::getTotalPrice).sum();
     }
 
 }

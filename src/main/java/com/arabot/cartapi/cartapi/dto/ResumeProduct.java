@@ -13,7 +13,7 @@ public class ResumeProduct {
     private UUID productId;
     private String name;
     private int quantity;
-    private double price;
+    private double unitePrice;
     private double totalPrice;
 
     public void increaseQuantity() {
@@ -22,6 +22,6 @@ public class ResumeProduct {
 
     public void calculateTotalPrice() {
 
-        this.totalPrice = this.price * this.quantity; }
+        this.totalPrice = this.unitePrice * this.quantity; }
 
 }

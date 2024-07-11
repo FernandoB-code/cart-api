@@ -148,7 +148,7 @@ public class CartServiceImpl implements CartService {
         ResumeProduct resumeProduct = buildNewResumeProduct(productDTO);
 
         cart.getProducts().add(resumeProduct);
-        cart.setTotalPrice(resumeProduct.getTotalPrice());
+        cart.setTotalPrice(resumeProduct.getUnitePrice());
 
         cartRepository.save(cart);
 
@@ -180,7 +180,7 @@ public class CartServiceImpl implements CartService {
     private ResumeProduct buildNewResumeProduct(ProductDTO productDTO) {
 
         return ResumeProduct.builder().productId(productDTO.getId())
-                .name(productDTO.getName()).quantity(1).price(productDTO.getPrice()).build();
+                .name(productDTO.getName()).quantity(1).unitePrice(productDTO.getPrice()).totalPrice(productDTO.getPrice()).build();
 
     }
 

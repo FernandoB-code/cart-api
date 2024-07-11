@@ -10,6 +10,8 @@ import com.arabot.cartapi.cartapi.repository.ProductRepository;
 import com.arabot.cartapi.cartapi.service.CartService;
 import org.arabot.provider.utils.UserUtils;
 import org.modelmapper.ModelMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.AmqpTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +26,7 @@ import java.util.UUID;
 @Service
 public class CartServiceImpl implements CartService {
 
+    private static final Logger log = LoggerFactory.getLogger(CartServiceImpl.class);
     private final ProductRepository productRepository;
 
     private final CartRepository cartRepository;
@@ -58,6 +61,7 @@ public class CartServiceImpl implements CartService {
     public boolean addProductToCart(UUID productId) {
 
         Product product = productRepository.findById(productId).orElseThrow();
+        log.info(product.toString());
         ProductDTO productDTO = mapper.map(product, ProductDTO.class);
 
         String actualUser =  userUtils.getAutenticatedUserName();
@@ -119,7 +123,7 @@ public class CartServiceImpl implements CartService {
 
 
             } catch (Exception e) {
-
+                log.info(e.getMessage());
                 return false;
 
             }
@@ -154,12 +158,13 @@ public class CartServiceImpl implements CartService {
 
         Cart cart = cartRepository.findById(email).orElseThrow();
 
-        Optional<ResumeProduct> productInCart = cart.getProducts().stream().filter(p -> p.getProductId().equals(productDTO.getId())).findFirst();
+        Optional<ResumeProduct> productInCart = cart.getProducts().stream()
+                .filter(p -> p.getProductId().equals(productDTO.getId())).findFirst();
 
         if(productInCart.isPresent()) {
 
             productInCart.get().increaseQuantity();
-            productInCart.get().increaseTotalPrice();
+            productInCart.get().calculateTotalPrice(); //the orden of this methods are important
 
         } else {
 
@@ -175,7 +180,7 @@ public class CartServiceImpl implements CartService {
     private ResumeProduct buildNewResumeProduct(ProductDTO productDTO) {
 
         return ResumeProduct.builder().productId(productDTO.getId())
-                .name(productDTO.getName()).quantity(1).totalPrice(productDTO.getPrice()).build();
+                .name(productDTO.getName()).quantity(1).price(productDTO.getPrice()).build();
 
     }
 

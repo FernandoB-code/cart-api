@@ -134,9 +134,10 @@ public class CartServiceImpl implements CartService {
     }
 
     @Override
-    public List<Product> productsInCart(List<UUID> productsId) {
+    public List<ResumeProduct> productsInCart() {
 
-        return productRepository.findAllById(productsId);
+        return cartRepository.findById(userUtils.getAutenticatedUserName()).orElseThrow().getProducts();
+
     }
 
     private void createInitialCart(String email, ProductDTO productDTO) {

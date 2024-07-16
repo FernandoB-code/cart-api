@@ -20,6 +20,13 @@ public class CartController {
     @Autowired
     private CartService cartService;
 
+    @GetMapping("/getAll")
+    public ResponseEntity<?> getProductsInCart() {
+
+        return new ResponseEntity<>(cartService.productsInCart(), HttpStatus.OK);
+
+    }
+
     @PostMapping("/add")
     public ResponseEntity<?> addProductToCart(@RequestParam("productId") UUID productId) {
 

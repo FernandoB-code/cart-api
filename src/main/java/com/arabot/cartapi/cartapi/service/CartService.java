@@ -1,5 +1,6 @@
 package com.arabot.cartapi.cartapi.service;
 
+import com.arabot.cartapi.cartapi.dto.ResumeProduct;
 import com.arabot.cartapi.cartapi.model.Product;
 
 import java.util.List;
@@ -12,5 +13,5 @@ public interface CartService {
 
     boolean purchaseProductsInCart();
 
-     List<Product> productsInCart(List<UUID> productsId);
+     List<ResumeProduct> productsInCart();
 }
